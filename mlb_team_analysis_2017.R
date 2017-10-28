@@ -1,6 +1,7 @@
 require(dplyr)
 require(readr)
 require(ggplot2)
+require(corrplot)
 
 ### Read in 2017 regular season team data
 ### Data retrieved from https://www.baseball-reference.com/leagues/MLB/2017.shtml
@@ -87,10 +88,15 @@ team_pitching <- team_pitching %>%
   left_join(team_league, by = "Tm")
 
 
-### Number of Position Players and Pitchers Used
+### Number of Position Players and Pitchers Used + AL/NL tables
 teams_playersused_wins <- left_join(team_batting, team_pitching, by = "Tm") %>%
   select(Tm, "n_batters" =`#Bat`, "n_pitchers" = `#P`, W, Lg)
 
+al_team_playersused <- teams_playersused_wins %>%
+  filter(Lg == "AL")
+
+nl_team_playersused <- teams_playersused_wins %>%
+  filter(Lg == "NL")
 
 # Histogram of batters used
 ggplot(teams_playersused_wins, aes(x = n_batters)) +
@@ -121,12 +127,92 @@ teams_playersused_wins %>%
   select(n_batters, Lg, W) %>%
   ggplot(aes(x = n_batters, y = W, colour = Lg)) +
   geom_point() +
-  geom_smooth(model = lm, se = FALSE)
+  geom_smooth(method = lm, fullrange = TRUE, se = FALSE) +
+  xlab("Team Number of Batters Used in 2017") +
+  ylab("Team Wins") +
+  ggtitle("Team Batters vs. Wins")
 
 #Weak Negative Correlation between number of batters used and Wins
 cor(teams_playersused_wins$n_batters, teams_playersused_wins$W)
+cor(al_team_playersused$n_batters, al_team_playersused$W)
+cor(nl_team_playersused$n_batters, nl_team_playersused$W)
 
+## Weak Negative Correlation between number of pitchers used and wins
+cor(teams_playersused_wins$n_pitchers, teams_playersused_wins$W)
+cor(al_team_playersused$n_pitchers, al_team_playersused$W)
+cor(nl_team_playersused$n_pitchers, nl_team_playersused$W)
 
+## Import Injury Data
+## src: http://www.spotrac.com/mlb/disabled-list/
+
+team_injuries <- read_csv("team_disabled_list.csv")
+team_injuries <- left_join(team_injuries, teams_playersused_wins, by = "Tm")
+
+## Examine relationships between batters/pitchers used vs. disabled list stints
+injury_cor <- team_injuries %>%
+  rename("Tm" = Tm, 
+         "Lg" = Lg, 
+         "Number of Players on DL" = players_on_dl,
+         "Total Days on DL" = days_on_dl,
+         "Number of Position Players on DL" = dl_batters,
+         "Days Position Players spent on DL" = days_dl_batters,
+         "Number of Pitchers on DL" = dl_pitchers,
+         "Days Pitchers spent on DL" = days_dl_pitchers,
+         "Number of Batters Used" = n_batters,
+         "Number of Pitchers Used" = n_pitchers,
+         "Team Wins" = W) %>%
+  select(-Tm, -Lg) %>%
+  cor()
+  
+
+corrplot(injury_cor, method="shade", shade.col= NA, tl.col="black", tl.srt=45,
+          addCoef.col="black", order="AOE")
+
+#Create correlation coefficient matrix for pitchers  
+pitcher_injury_cor <- team_injuries %>%
+   select("# Pitchers on DL" = dl_pitchers,
+         "Days on DL" = days_dl_pitchers,
+         "# Pitchers Used" = n_pitchers,
+         "Team Wins" = W) %>%
+    cor()
+
+corrplot(pitcher_injury_cor, method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=25,
+         addCoef.col="black", order="AOE", title = "Pitchers on DL in 2017")
+
+#Create correlation coefficient matrix for batters
+batter_injury_cor <- team_injuries %>%
+  select( "# Position Players on DL" = dl_batters,
+          "Days on DL" = days_dl_batters,
+          "# Batters Used" = n_batters,
+          "Team Wins" = W) %>%
+  cor()
+
+corrplot(batter_injury_cor, method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=25,
+         addCoef.col="black", order="AOE", title = "Position Players on DL in 2017")
+
+### Add OBP to the batter injury table
+batter_injury_with_team_obp <- left_join(team_injuries, team_batting, by = "Tm") %>%
+  select( "# Position Players on DL" = dl_batters,
+          "Days on DL" = days_dl_batters,
+          "# Batters Used" = n_batters,
+          "Team Wins" = W,
+          "OBP" = OBP) %>%
+  cor()
+
+batter_injury_with_team_obp
+
+### Add WHIP to the pitching injury table
+pitcher_injury_with_team_whip <- team_injuries %>%
+  rename("Team Wins" = W) %>%
+  left_join(team_pitching, by = "Tm") %>%
+  select("# Pitchers on DL" = dl_pitchers,
+         "Days on DL" = days_dl_pitchers,
+         "# Pitchers Used" = n_pitchers,
+         "Team Wins" = W,
+         "WHIP" = WHIP) %>%
+  cor()
+
+pitcher_injury_with_team_whip
 
 ### Questions
 ## players used vs time on DL
@@ -134,10 +220,14 @@ cor(teams_playersused_wins$n_batters, teams_playersused_wins$W)
 ## pitchers used vs Team WHIP
 
 
-## CB % vs wins
-## Strike % vs wins
-## Avg pitch speed vs. wins
-## Exit velo vs wins
 ##
+##538 on LAD leveraging new DL Rules: https://fivethirtyeight.com/features/how-the-dodgers-are-using-baseballs-new-dl-rules-to-get-an-edge/
 ##
-##
+
+pitching_all_cats_wins <- team_pitching %>%
+  select(-Tm,-G, -GS, -Lg.x, -Lg.y, -PAge, -L, -`W-L%`, -tSho, -cSho, -SV)
+
+p_cor <- cor(x = pitching_all_cats_wins$W, y = pitching_all_cats_wins[1:27], use = "complete.obs")
+
+corrplot(p_cor, method="shade", shade.col= NA, tl.col="black", tl.srt=25,
+         addCoef.col="black")
