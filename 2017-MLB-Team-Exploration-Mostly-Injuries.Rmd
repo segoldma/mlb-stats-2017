@@ -1,10 +1,37 @@
-require(dplyr)
-require(readr)
-require(ggplot2)
-require(corrplot)
+---
+title: "2017 MLB Team Exploration: Mostly Injuries"
+author: "Seth Goldman"
+date: "October 28, 2017"
+output: html_document
+tags: ["R", "data", "MLB", "exploratory"]
+---
 
-### Read in 2017 regular season team data
-### Data retrieved from https://www.baseball-reference.com/leagues/MLB/2017.shtml
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, cache = TRUE, warning = FALSE, message = FALSE)
+```
+
+Although the Washington Nationals have crashed out of the MLB playoffs for the [fourth time in four appearances](http://www.espn.com/blog/washington-nationals/post/_/id/3300/curses-nationals-playoff-dreams-are-foiled-again) since 2012, I'm not ready to put the 2017 season to bed. While practicing exploratory data analysis and plotting with [ggplot2](http://ggplot2.tidyverse.org/reference/), I downloaded a couple of datasets from the 2017 MLB Regular Season to play around with:
+
+* Team Batting ([baseball reference](https://www.baseball-reference.com/leagues/MLB/2017.shtml))
+* Team Pitching ([baseball reference](https://www.baseball-reference.com/leagues/MLB/2017.shtml))
+* Team Disabled List data ([spotrac](http://www.spotrac.com/mlb/disabled-list/))
+
+I have a pretty superficial understanding of modern [sabermetrics]("http://sabr.org/sabermetrics") (i.e.,  [FanGraphs](http://www.fangraphs.com) is often over my head, I couldn't tell you how to calculate weighted on-base average, but I understand the concepts behind Run Expectancy, Win Probability Added, WAR, and a handful of popular measures). All this to say: this analysis won't add much value to baseball research, but was fun to practice on.
+
+With no particular goal in mind, I loaded in the 2017 Team Batting, and 2017 Team Pitching from [bbref](baseball-reference.com/leagues/MLB/2017.shtml), and an American League/National League reference table, which I created myself.
+
+Baseball Reference recently [re-designed]("https://www.sports-reference.com/blog/2016/11/exporting-data/") their table export functionality, where instead of downloading the table as a .csv, bbref displays a block of comma-separated text. 
+
+I loaded the data using [readr]("https://cran.r-project.org/web/packages/readr/")'s `read_csv` function. The first three rows, below:
+
+```{r load_bbref_data, eval = FALSE}
+team_batting <- read_csv("Tm,#Bat,BatAge,R/G,G,PA,AB,R,H,2B,3B,HR,RBI,SB,CS,BB,SO,BA,OBP,SLG,OPS,OPS+,TB,GDP,HBP,SH,SF,IBB,LOB
+ARI,45,28.3,5.01,162,6224,5525,812,1405,314,39,220,776,103,30,578,1456,.254,.329,.445,.774,93,2457,106,54,39,27,44,1118
+                         ATL,49,28.7,4.52,162,6216,5584,732,1467,289,26,165,706,77,31,474,1184,.263,.326,.412,.738,94,2303,137,66,59,32,57,1127
+                         BAL,50,28.6,4.59,162,6140,5650,743,1469,269,12,232,713,32,13,392,1412,.260,.312,.435,.747,99,2458,138,50,10,37,12,1041")                     
+```
+
+```{r load_data, eval = TRUE, echo = FALSE}
 
 team_batting <- read_csv("Tm,#Bat,BatAge,R/G,G,PA,AB,R,H,2B,3B,HR,RBI,SB,CS,BB,SO,BA,OBP,SLG,OPS,OPS+,TB,GDP,HBP,SH,SF,IBB,LOB
 ARI,45,28.3,5.01,162,6224,5525,812,1405,314,39,220,776,103,30,578,1456,.254,.329,.445,.774,93,2457,106,54,39,27,44,1118
@@ -78,7 +105,7 @@ ARI,23,28.7,4.07,93,69,.574,3.66,162,162,160,2,11,1,43,1441.0,1309,659,586,171,5
 ## Add team leagues
 team_league <- read_csv("team_leagues.csv")
 
-## Remove summary rows
+## Remove summary rows, add league key
 team_batting <- team_batting %>%
   slice(1:30) %>%
   left_join(team_league, by = "Tm")
@@ -87,9 +114,9 @@ team_pitching <- team_pitching %>%
   slice(1:30) %>%
   left_join(team_league, by = "Tm")
 
+## Create al/nl summary tables
 
-### Number of Position Players and Pitchers Used + AL/NL tables
-teams_playersused_wins <- left_join(team_batting, team_pitching, by = c("Tm", "Lg")) %>%
+teams_playersused_wins <- left_join(team_batting, team_pitching, by = c("Tm","Lg")) %>%
   select(Tm, "n_batters" =`#Bat`, "n_pitchers" = `#P`, W, Lg)
 
 al_team_playersused <- teams_playersused_wins %>%
@@ -98,26 +125,49 @@ al_team_playersused <- teams_playersused_wins %>%
 nl_team_playersused <- teams_playersused_wins %>%
   filter(Lg == "NL")
 
-#histogram of batters used
-ggplot(teams_playersused_wins, aes(x = n_batters)) +
-  geom_histogram(binwidth = 2)
+```
 
-# Box plot of batters used
+Since the team summaries from bbref included *average* and *sum* rows, I had to remove these from my data.frames, and added the AL/NL key:
+
+```{r clean_tables, echo = TRUE, eval = FALSE}
+
+team_batting <- team_batting %>%
+  slice(1:30) %>%
+  left_join(team_league, by = "Tm")
+
+team_pitching <- team_pitching %>%
+  slice(1:30) %>%
+  left_join(team_league, by = "Tm")
+
+```
+
+
+### Player Appearances per Team
+As I started to examine the tables, I had to return to bbref to look up the `#Bat` and `#P` variables, while represent the number of distinct *batters* and *pitchers* that appeared for each team.
+
+To get a sense of the distribution of batters used by team, I created a box-and-whisker plot.
+```{r box_plot_of_batters, eval = TRUE}
 ggplot(teams_playersused_wins, aes(x = "", y = n_batters)) +
   geom_boxplot(fill = "#4271AE") +
   ylab("Number of Batters Used") +
   xlab("") +
-  ggtitle("Number of Batters Used in Games")
+  ggtitle("Number of Batters Used in Games (2017)")
 
-# Boxplot of batters used faceted by League
+```
+
+Since pitchers have to bat in the National League, I'd expect NL teams to have 4-5 more batters on average than the AL. After plotting the two leagues side-by-side, my hunch was disproved. I hadn't considered interleague games, which reverse the effect.
+
+```{r box_plot_of_batters_by_lg, eval = TRUE, echo = FALSE}
 ggplot(teams_playersused_wins, aes(x = Lg, y = n_batters)) +
   geom_boxplot(fill = "#4271AE") +
   xlab("League") +
   ylab("Batters Used") +
-  ggtitle("Number of Batters Used in Games")
- 
+  ggtitle("Number of Batters Used in Games (2017)")
+```
+AL teams used three more batters than do NL team on average, but the outliers are interesting. 
 
-# Which teams used the most batters in each league
+*Which teams used the **most** batters in each league?*
+```{r most_batters_by_league, eval = TRUE, echo = FALSE}
 teams_playersused_wins %>%
   select(Tm, n_batters, Lg) %>%
   filter(Lg == "AL") %>%
@@ -129,8 +179,27 @@ teams_playersused_wins %>%
   filter(Lg == "NL") %>%
   arrange(desc(n_batters)) %>%
   top_n(5, (n_batters))
-  
-# Plot Relationship between Number of Batters Used and Wins by League
+```
+
+*Which teams used the **fewest** batters in each league?*
+```{r fewest_batters_by_league, eval = TRUE, echo = FALSE}
+teams_playersused_wins %>%
+  select(Tm, n_batters, Lg) %>%
+  filter(Lg == "AL") %>%
+  arrange(n_batters) %>%
+  top_n(-5, n_batters)
+
+teams_playersused_wins %>%
+  select(Tm, n_batters, Lg) %>%
+  filter(Lg == "NL") %>%
+  arrange(n_batters) %>%
+  top_n(-5, (n_batters))
+```
+
+Pretty interesting: Only one team among the top-5 of each league made the Postseason (LAD), compared to six of the ten teams among their league's bottom-5 (CLE, HOU, BOS, COL, ARI, CHC). 
+
+#### Does this mean that using fewer batters tend to win more games?
+```{r batters_used_vs_wins, echo = FALSE}
 teams_playersused_wins %>%
   select(n_batters, Lg, W) %>%
   ggplot(aes(x = n_batters, y = W, colour = Lg)) +
@@ -139,103 +208,11 @@ teams_playersused_wins %>%
   xlab("Team Number of Batters Used in 2017") +
   ylab("Team Wins") +
   ggtitle("Team Batters vs. Wins")
+```
 
-#Weak Negative Correlation between number of batters used and Wins
-cor(teams_playersused_wins$n_batters, teams_playersused_wins$W)
-cor(al_team_playersused$n_batters, al_team_playersused$W)
-cor(nl_team_playersused$n_batters, nl_team_playersused$W)
+Overall, the correlation coefficient between Batters Used and Wins is `r cor(teams_playersused_wins$n_batters, teams_playersused_wins$W)`, a weak negative relationship. Among AL teams it's `r cor(al_team_playersused$n_batters, al_team_playersused$W)`, and for NL teams it's `r cor(nl_team_playersused$n_batters, nl_team_playersused$W)`.
 
-## Weak Negative Correlation between number of pitchers used and wins
-cor(teams_playersused_wins$n_pitchers, teams_playersused_wins$W)
-cor(al_team_playersused$n_pitchers, al_team_playersused$W)
-cor(nl_team_playersused$n_pitchers, nl_team_playersused$W)
+I anticipated the relationship to be stronger in the AL, with CLE, HOU, and BOS using the fewest batters in the AL, while combining for 296 wins. However, I wonder if these highly successful teams won more games with fewer players because they managed to avoid injuries, or simply better individual hitters among on their rosters.
 
-## Import Injury Data
-## src: http://www.spotrac.com/mlb/disabled-list/
-
-team_injuries <- read_csv("team_disabled_list.csv")
-team_injuries <- left_join(team_injuries, teams_playersused_wins, by = "Tm")
-
-## Examine relationships between batters/pitchers used vs. disabled list stints
-injury_cor <- team_injuries %>%
-  rename("Tm" = Tm, 
-         "Lg" = Lg, 
-         "Number of Players on DL" = players_on_dl,
-         "Total Days on DL" = days_on_dl,
-         "Number of Position Players on DL" = dl_batters,
-         "Days Position Players spent on DL" = days_dl_batters,
-         "Number of Pitchers on DL" = dl_pitchers,
-         "Days Pitchers spent on DL" = days_dl_pitchers,
-         "Number of Batters Used" = n_batters,
-         "Number of Pitchers Used" = n_pitchers,
-         "Team Wins" = W) %>%
-  select(-Tm, -Lg) %>%
-  cor()
-  
-
-corrplot(injury_cor, method="shade", shade.col= NA, tl.col="black", tl.srt=45,
-          addCoef.col="black", order="AOE")
-
-#Create correlation coefficient matrix for pitchers  
-pitcher_injury_cor <- team_injuries %>%
-   select("# Pitchers on DL" = dl_pitchers,
-         "Days on DL" = days_dl_pitchers,
-         "# Pitchers Used" = n_pitchers,
-         "Team Wins" = W) %>%
-    cor()
-
-corrplot(pitcher_injury_cor, method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=25,
-         addCoef.col="black", order="AOE", title = "Pitchers on DL in 2017")
-
-#Create correlation coefficient matrix for batters
-batter_injury_cor <- team_injuries %>%
-  select( "# Position Players on DL" = dl_batters,
-          "Days on DL" = days_dl_batters,
-          "# Batters Used" = n_batters,
-          "Team Wins" = W) %>%
-  cor()
-
-corrplot(batter_injury_cor, method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=25,
-         addCoef.col="black", order="AOE", title = "Position Players on DL in 2017")
-
-### Add OBP to the batter injury table
-batter_injury_with_team_obp <- left_join(team_injuries, team_batting, by = "Tm") %>%
-  select( "# Position Players on DL" = dl_batters,
-          "Days on DL" = days_dl_batters,
-          "# Batters Used" = n_batters,
-          "Team Wins" = W,
-          "OBP" = OBP) %>%
-  cor()
-
-batter_injury_with_team_obp
-
-### Add WHIP to the pitching injury table
-pitcher_injury_with_team_whip <- team_injuries %>%
-  rename("Team Wins" = W) %>%
-  left_join(team_pitching, by = "Tm") %>%
-  select("# Pitchers on DL" = dl_pitchers,
-         "Days on DL" = days_dl_pitchers,
-         "# Pitchers Used" = n_pitchers,
-         "Team Wins" = W,
-         "WHIP" = WHIP) %>%
-  cor()
-
-pitcher_injury_with_team_whip
-
-### Questions
-## players used vs time on DL
-## batters used vs Team OBP
-## pitchers used vs Team WHIP
-
-
-##
-##538 on LAD leveraging new DL Rules: https://fivethirtyeight.com/features/how-the-dodgers-are-using-baseballs-new-dl-rules-to-get-an-edge/
-##
-
-pitching_all_cats_wins <- team_pitching %>%
-  select(-Tm,-G, -GS, -Lg.x, -Lg.y, -PAge, -L, -`W-L%`, -tSho, -cSho, -SV)
-
-p_cor <- cor(x = pitching_all_cats_wins$W, y = pitching_all_cats_wins[1:27], use = "complete.obs")
-
-corrplot(p_cor, method="shade", shade.col= NA, tl.col="black", tl.srt=25,
-         addCoef.col="black")
+## Load in Injury Data
+### Add Corrplot and Correlation Table
