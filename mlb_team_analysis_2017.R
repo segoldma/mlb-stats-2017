@@ -104,14 +104,14 @@ ggplot(teams_playersused_wins, aes(x = n_batters)) +
 
 # Box plot of batters used
 ggplot(teams_playersused_wins, aes(x = "", y = n_batters)) +
-  geom_boxplot(fill = "#4271AE") +
+  geom_boxplot(fill = "#4271AE", width = 0.1) +
   ylab("Number of Batters Used") +
   xlab("") +
   ggtitle("Number of Batters Used in Games")
 
 # Boxplot of batters used faceted by League
 ggplot(teams_playersused_wins, aes(x = Lg, y = n_batters)) +
-  geom_boxplot(fill = "#4271AE") +
+  geom_boxplot(fill = "#4271AE", width = 0.25) +
   xlab("League") +
   ylab("Batters Used") +
   ggtitle("Number of Batters Used in Games")
@@ -201,6 +201,7 @@ corrplot(batter_injury_cor, method="shade", type = "upper", shade.col= NA, tl.co
 ### Add OBP to the batter injury table
 batter_injury_with_team_obp <- left_join(team_injuries, team_batting, by = "Tm") %>%
   select( "# Position Players on DL" = dl_batters,
+          "Runs per Game" = `R/G`,
           "Days on DL" = days_dl_batters,
           "# Batters Used" = n_batters,
           "Team Wins" = W,
@@ -233,7 +234,7 @@ pitcher_injury_with_team_whip
 ##
 
 pitching_all_cats_wins <- team_pitching %>%
-  select(-Tm,-G, -GS, -Lg.x, -Lg.y, -PAge, -L, -`W-L%`, -tSho, -cSho, -SV)
+  select(-Tm,-G, -GS, -Lg, -PAge, -L, -`W-L%`, -tSho, -cSho, -SV)
 
 p_cor <- cor(x = pitching_all_cats_wins$W, y = pitching_all_cats_wins[1:27], use = "complete.obs")
 
