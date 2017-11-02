@@ -1,7 +1,7 @@
 ---
 title: "2017 MLB Team Exploration: Mostly Injuries"
 author: "Seth Goldman"
-date: "October 28, 2017"
+date: "November 1, 2017"
 output: html_document
 tags: ["R", "data", "MLB", "exploratory"]
 ---
@@ -10,7 +10,7 @@ tags: ["R", "data", "MLB", "exploratory"]
 knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, cache = TRUE, warning = FALSE, message = FALSE)
 ```
 
-Although the Washington Nationals have crashed out of the MLB playoffs for the [fourth time in four appearances](http://www.espn.com/blog/washington-nationals/post/_/id/3300/curses-nationals-playoff-dreams-are-foiled-again) since 2012, I'm not ready to put the 2017 season to bed. While practicing exploratory data analysis and plotting with [ggplot2](http://ggplot2.tidyverse.org/reference/), I downloaded a couple of datasets from the 2017 MLB Regular Season to play around with:
+Although the Washington Nationals have crashed out of the MLB playoffs for the [fourth time in four appearances](http://www.espn.com/blog/washington-nationals/post/_/id/3300/curses-nationals-playoff-dreams-are-foiled-again) since 2012, I'm not ready to put the 2017 season to bed. I downloaded acouple of datasets from the 2017 MLB Regular Season to play around with while practicing exploratory data analysis and To practice exploratory data analysis plotting with [ggplot2](http://ggplot2.tidyverse.org/reference/):
 
 * Team Batting ([baseball reference](https://www.baseball-reference.com/leagues/MLB/2017.shtml))
 * Team Pitching ([baseball reference](https://www.baseball-reference.com/leagues/MLB/2017.shtml))
@@ -143,7 +143,7 @@ team_pitching <- team_pitching %>%
 
 
 ### Player Appearances per Team
-As I started to examine the tables, I had to return to bbref to look up the `#Bat` and `#P` variables, while represent the number of distinct *batters* and *pitchers* that appeared for each team.
+As I started to examine the tables, I had to return to bbref to look up the `#Bat` and `#P` variables, which represent the number of distinct *batters* and *pitchers* that appeared for each team.
 
 To get a sense of the distribution of batters used by team, I created a box-and-whisker plot.
 ```{r box_plot_of_batters, eval = TRUE}
@@ -155,7 +155,7 @@ ggplot(teams_playersused_wins, aes(x = "", y = n_batters)) +
 
 ```
 
-Since pitchers have to bat in the National League, I'd expect NL teams to have 4-5 more batters on average than the AL. After plotting the two leagues side-by-side, my hunch was disproved. I hadn't considered interleague games, which reverse the effect.
+Since pitchers have to bat in the National League, I'd expect NL teams to have 4-5 more batters on average than the AL. After plotting the two leagues side-by-side, my hunch was disproved. I hadn't considered interleague games, which effectively reverse the effect.
 
 ```{r box_plot_of_batters_by_lg, eval = TRUE, echo = FALSE}
 ggplot(teams_playersused_wins, aes(x = Lg, y = n_batters)) +
@@ -199,7 +199,7 @@ teams_playersused_wins %>%
 
 Pretty interesting: Only one team among the top-5 of each league made the Postseason (LAD), compared to six of the ten teams among their league's bottom-5 (CLE, HOU, BOS, COL, ARI, CHC). 
 
-#### Does this mean that using fewer batters tend to win more games?
+#### Does this mean that teams that use fewer batters tend to win more games?
 ```{r batters_used_vs_wins, echo = FALSE}
 teams_playersused_wins %>%
   select(n_batters, Lg, W) %>%
@@ -213,9 +213,9 @@ teams_playersused_wins %>%
 
 Overall, the correlation coefficient between Batters Used and Wins is ``r cor(teams_playersused_wins$n_batters, teams_playersused_wins$W)``, a weak negative relationship. Among AL teams it's ``r cor(al_team_playersused$n_batters, al_team_playersused$W)``, and for NL teams it's ``r cor(nl_team_playersused$n_batters, nl_team_playersused$W)``.
 
-I anticipated the relationship to be stronger in the AL, with CLE, HOU, and BOS using the fewest batters in the AL, while combining for 296 wins. However, I wonder if these highly successful teams won more games with fewer players because they managed to avoid injuries, or simply better individual hitters among on their rosters.
+I anticipated the relationship to be stronger in the AL, with CLE, HOU, and BOS using the fewest batters in the AL, while combining for 296 wins. However, I wonder if these highly successful teams won more games with fewer players because they managed to avoid injuries, or simply had better individual hitters among on their rosters.
 
-To examine this, I found [MLB Disabled List](http://www.spotrac.com/mlb/disabled-list/) data on [Sportrac](http://www.spotrac.com/). This dataset includes each team's number of distinct players who spent time on MLB's Disabled List, along with the corresponding number of days. It also includes summaries for `batters` as well as `pitchers`, previewed below:
+To examine this, I found [MLB Disabled List](http://www.spotrac.com/mlb/disabled-list/) data on [Spotrac](http://www.spotrac.com/). This dataset includes each team's number of distinct players who spent time on MLB's Disabled List, along with the corresponding number of days. It also includes summaries on these categories among `batters` as well as `pitchers`, previewed below:
 
 ```{r sportrac preview, echo = FALSE, eval = TRUE}
 team_injuries <- read_csv("team_disabled_list.csv")
@@ -245,14 +245,14 @@ corrplot(batter_injury_cor, method="shade", type = "upper", shade.col= NA, tl.co
 **Not so surprising:**
 
 * the strongest positive correlation is between the number of players who spent time on the Disabled List, and the total number of days. `(0.85)`
-* number of batters used is slightly negatively correlated with Team Wins (although we found earlier that the relationship is stronger in the `AL` than `NL`.)
+* number of batters used is slightly negatively correlated with Team Wins (although we found earlier that the relationship is stronger in the `AL` than the `NL`.)
 
 **A bit more surprising:** 
 
-* there seems to have been little-to-no relationship between a team's number of batters on the DL, and Team Wins `(-0.05)`
+* there seems to have been almost no relationship between a team's number of batters on the DL, and Team Wins `(-0.05)`
 * nor is their much of any relationship between the number of days batters spent on the DL and team wins `(0.03)`
 
-#### Did the number of batters a team uses relate to offense production?
+#### How does the number of batters a team used relate to offense production?
 
 Since there weren't very strong relationships between disabled list activity and Team Wins, I was curious to know if teams that used more players experienced diminished offensive production overall. I used On-Base Percentage and Runs-per-game as proxies for offensive production, and created the correlation table below:
 
@@ -277,6 +277,30 @@ kable(batter_injury_with_team_obp)
 * both Runs/Game (`0.72`) and OBP(`0.71`) are strongly correlated with Team Wins
 
 
+**What about those top-performing teams that used so few players?**
+
+We found earlier that the Red Sox, Astros, and Indians combined for almost 300 wins, while among the bottom-5 in `batters` used. I created a small `corrplot` to examine the relationships between DL stints and offensive performance.
+
+```{r top_team_corrplot, echo = FALSE, eval = TRUE}
+batter_injury_with_team_obp_top <- left_join(team_injuries, team_batting, by = "Tm") %>%
+  filter(Tm %in% c("CLE","HOU", "BOS")) %>%
+    select("Runs per Game" = `R/G`,
+           "OBP" = OBP,
+           "Days on DL" = days_dl_batters,
+          "Team Wins" = W) %>%
+  cor() %>%
+  corrplot(method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=45,
+         addCoef.col="white", order="AOE")
+
+
+```
+
+* there's an incredibly strong relationship between `BOS`,`CLE`, and `HOU`'s few days on the DL, and a high on-base percentage (`-0.995`), and Runs/Game (`-0.97`)
+* the ability to avoid injury goes a long way: the three teams' *R* for days on the DL and Wins is `-0.81` compared to the league-wide coefficient of `0.03`
+
+
 #### Questions for next time
 
-In the future, I'd like to redo this analysis for pitchers spectifically, layering in pitch data from [Statcast](http://m.mlb.com/statcast/leaderboard#avg-pitch-velo). A couple of recent articles piqued my interest in injury. From 538, how the Dodgers are [getting creative](https://fivethirtyeight.com/features/how-the-dodgers-are-using-baseballs-new-dl-rules-to-get-an-edge/) with MLB's new Disabled List rules, and from WSJ, how baseball's most successful pitching staffs tend to have [more effective curveballs](https://www.wsj.com/articles/baseballs-hidden-key-to-success-throwing-slower-1508243922) than their less-successful competitors.
+In the future, I'd like to redo this analysis for pitchers spectifically, layering in pitch data from [Statcast](http://m.mlb.com/statcast/leaderboard#avg-pitch-velo). A couple of recent articles piqued my interest in injury data: From 538, how the Dodgers are [getting creative](https://fivethirtyeight.com/features/how-the-dodgers-are-using-baseballs-new-dl-rules-to-get-an-edge/) with MLB's new Disabled List rules to gain a competitive advantage, and from WSJ, how baseball's most successful pitching staffs tend to have [more effective curveballs](https://www.wsj.com/articles/baseballs-hidden-key-to-success-throwing-slower-1508243922) than their less-successful competitors.
+
+*Contact me via [email](mailto:sethgoldman1@gmail.com)*
