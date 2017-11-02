@@ -199,6 +199,7 @@ corrplot(batter_injury_cor, method="shade", type = "upper", shade.col= NA, tl.co
          addCoef.col="black", order="AOE", title = "Position Players on DL in 2017")
 
 ### Add OBP to the batter injury table
+
 batter_injury_with_team_obp <- left_join(team_injuries, team_batting, by = "Tm") %>%
   select( "# Position Players on DL" = dl_batters,
           "Runs per Game" = `R/G`,
@@ -240,3 +241,16 @@ p_cor <- cor(x = pitching_all_cats_wins$W, y = pitching_all_cats_wins[1:27], use
 
 corrplot(p_cor, method="shade", shade.col= NA, tl.col="black", tl.srt=25,
          addCoef.col="black")
+
+batter_injury_with_team_obp_top <- left_join(team_injuries, team_batting, by = "Tm") %>%
+  filter(Tm %in% c("CLE","HOU", "BOS")) %>%
+    select("Runs per Game" = `R/G`,
+           "OBP" = OBP,
+           "Days on DL" = days_dl_batters,
+          "Team Wins" = W) %>%
+  cor()
+
+(batter_injury_with_team_obp_top) 
+
+corrplot(batter_injury_with_team_obp_top, method="shade", type = "upper", shade.col= NA, tl.col="black", tl.srt=45,
+         addCoef.col="black", order="AOE")
